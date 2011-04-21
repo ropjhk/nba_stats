@@ -10,7 +10,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20110407173338) do
+ActiveRecord::Schema.define(:version => 20110419170448) do
 
   create_table "awards", :force => true do |t|
     t.integer  "year"
@@ -162,7 +162,7 @@ ActiveRecord::Schema.define(:version => 20110407173338) do
     t.string   "location"
     t.string   "game_type"
     t.string   "league"
-    t.float    "minutes_played"
+    t.integer  "minutes_played"
     t.integer  "home_fg"
     t.integer  "home_fga"
     t.float    "home_fgpercent"
@@ -202,6 +202,10 @@ ActiveRecord::Schema.define(:version => 20110407173338) do
     t.integer  "away_pts"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.string   "ot"
+    t.string   "notes"
+    t.boolean  "neutral"
+    t.integer  "season"
   end
 
   create_table "players", :force => true do |t|
@@ -225,9 +229,10 @@ ActiveRecord::Schema.define(:version => 20110407173338) do
 
   create_table "referee_stats", :force => true do |t|
     t.integer  "referee_id"
-    t.string   "type"
+    t.string   "season_type"
     t.string   "league"
     t.integer  "year"
+    t.string   "officiating_type"
     t.integer  "games"
     t.float    "home_win_percent"
     t.float    "home_pts_diff"
@@ -331,6 +336,7 @@ ActiveRecord::Schema.define(:version => 20110407173338) do
     t.integer  "o_pts"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.boolean  "validated"
   end
 
   create_table "teams", :force => true do |t|
@@ -342,6 +348,11 @@ ActiveRecord::Schema.define(:version => 20110407173338) do
     t.string   "short_name"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.integer  "start_year"
+    t.integer  "last_year"
+    t.integer  "prev_team_id"
+    t.integer  "next_team_id"
+    t.string   "brid",           :limit => 5
   end
 
 end

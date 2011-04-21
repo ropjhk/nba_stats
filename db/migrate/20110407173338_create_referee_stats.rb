@@ -2,9 +2,10 @@ class CreateRefereeStats < ActiveRecord::Migration
   def self.up
     create_table :referee_stats do |t|
       t.integer     :referee_id
-      t.string      :type
+      t.string      :season_type
       t.string      :league
       t.integer     :year
+      t.string      :officiating_type
       t.integer     :games
       t.float     :home_win_percent
       t.float     :home_pts_diff

@@ -228,7 +228,276 @@ namespace 'scrape' do
   end
   
   task :import_draft do
+    file_name = "#{Rails.root}/tmp/databasebasketball2009/draft.csv"
     
+    f = File.open(file_name)
+    while (c = f.gets)
+      line_array = c.split(",")
+      
+      draft_from = line_array[7]
+      league = line_array[8]
+      if league == "HS" || league == " HS" || league == "000)" || league == "100"
+        draft_from += league
+        league = line_array[9]
+      end
+      
+      year = line_array[0]
+      tpid = line_array[3]
+      if tpid == "nyj"
+        tpid = "nyn"
+      end
+      first_name = line_array[4]
+      last_name = line_array[5]
+      pid = line_array[6]
+      
+      team = Team.find_by_pid(tpid)
+      player = Player.find_by_pid(pid)
+      
+      if !team.nil?
+        #draft = Draft.find(:first, :conditions => {:team_id => team.id, :year => year, :first_name => first_name, :last_name => last_name, :league => league})
+        #if draft.nil?
+          draft = Draft.new
+          draft.year = year
+          draft.team_id = team.id
+          draft.first_name = first_name
+          draft.last_name = last_name
+        #end
+        draft.player_id = player.id if !player.nil?
+        draft.league = league
+        draft.draft_round = line_array[1]
+        draft.selection = line_array[2]
+        draft.draft_from = draft_from
+        draft.save
+      end
+    end
+  end
+  
+  task :import_ref_stats do 
+    file_names = Array.new
+    file_names << {:file_name => "#{Rails.root}/tmp/refstats/refs2008-2009.txt", :type => "regular", :year => 2009}
+    file_names << {:file_name => "#{Rails.root}/tmp/refstats/refs2008-2009p.txt", :type => "playoffs", :year => 2009}
+    file_names << {:file_name => "#{Rails.root}/tmp/refstats/refs2009-2010.txt", :type => "regular", :year => 2010}
+    file_names << {:file_name => "#{Rails.root}/tmp/refstats/refs2009-2010p.txt", :type => "playoffs", :year => 2010}
+
+    file_names.each do |fn|
+      file_name = fn[:file_name]
+      season_type = fn[:type]
+      year = fn[:year]
+      
+      f = File.open(file_name)
+      while (c = f.gets)
+        line_array = c.split(",")
+        
+        name = line_array[0].split(" ")
+        ref = Referee.find(:first, :conditions => {:first_name => name[0], :last_name => name[1]})
+        if ref.nil?
+          ref = Referee.new
+          ref.first_name = name[0]
+          ref.last_name = name[1]
+          ref.save
+        end
+        
+        officiating_type = line_array [1]
+        ref_stat = RefereeStat.find(:first, :conditions => {:referee_id => ref.id, :year => year, :season_type => season_type, :officiating_type => officiating_type})
+        if ref_stat.nil?
+          ref_stat = RefereeStat.new
+          ref_stat.referee_id = ref.id
+          ref_stat.year = year
+          ref_stat.season_type = season_type
+          ref_stat.officiating_type = officiating_type
+        end
+        ref_stat.league = "N"
+        ref_stat.games = line_array[2]
+        ref_stat.home_win_percent = line_array[3]
+        ref_stat.home_pts_diff = line_array[4]
+        ref_stat.tot_ppg = line_array[5]
+        ref_stat.foulspg = line_array[6]
+        ref_stat.away_foul_percent = line_array[7]
+        ref_stat.home_foul_percent = line_array[8]
+        ref_stat.away_techpg = line_array[9]
+        ref_stat.home_techpg = line_array[10]
+        ref_stat.save
+      end
+    end
   end
 
+  task :import_game_results do
+    #"ATL", "BOS", "CHI", "CHA", "CLE", "DET", "HOU", "DAL", "DEN", "GSW", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NJN", "NOH","NYK","OKC","ORL","PHI","PHO", 
+    teams = ["ATL", "BOS", "CHI", "CHA", "CLE", "DET", "HOU", "DAL", "DEN", "GSW", "IND", "LAC", "LAL", "MEM", "MIA", "MIL", "MIN", "NJN", "NOH","NYK","OKC","ORL","PHI","PHO","POR","SAC","SAS","TOR","UTA","WAS" ]
+    teams = ["SEA", "NOO", "NOH"]
+    teams = ["CHA", "VAN"]
+    teams = ["INA"]
+    teams = Team.find(:all)
+    
+    teams.each do |t|
+      #team = Team.find_by_pid(t)
+      team = t
+      if !team.nil?
+        #team.last_year.downto(team.start_year) do |year|
+        start_year = [team.last_year, 1950].min
+        start_year.downto(team.start_year) do |year|
+          begin  
+            download_schedule_and_results(team, year)
+            puts "TEAM: #{team.pid} YEAR:#{year}"
+          rescue
+            puts "MISSED #{team.pid} YEAR:#{year}"
+          end
+          
+        end
+      end
+      #download_schedule_and_results(team, "1968")
+    end
+    
+  end
+  
+  def download_schedule_and_results(team, year)
+    @uri = URI.parse "http://www.basketball-reference.com"
+    if !team.brid.nil?
+      @download_path = "/teams/#{team.brid}/#{year}_games.html"
+    else
+      @download_path = "/teams/#{team.pid}/#{year}_games.html"
+    end
+    
+    http = Net::HTTP.new(@uri.host, @uri.port)
+    #puts "#{@uri.host}, #{@uri.port} REQUEST: #{@download_path}"
+    
+    #get the file names from the current directory
+    request = Net::HTTP::Get.new(@download_path)
+    response = http.request(request).body
+    
+    #f = File.open("#{Rails.root}/tmp/test_input2")
+    #response = f.read
+    #puts response
+    begin
+      division, throw_away = find_between("NBA</a> ", " Division (<a href=", response)
+    rescue
+      begin
+      division, throw_away = find_between("BAA</a> ", " Division (<a href=", response)
+      rescue
+        begin
+          division, throw_away = find_between("ABA</a> ", " Division (<a href=", response)
+        rescue
+        end
+      end
+    end
+    
+    anchor1_index = response.index("Arena:")
+    arena, throw_away = find_between("</strong> ", "&nbsp;", response[anchor1_index..anchor1_index+100])
+    
+    anchor1_index = response.index("Attendance:")
+    begin
+      attendance, throw_away = find_between("</strong> ", "(", response[anchor1_index..anchor1_index+100])
+      attendance = attendance.gsub(",","")
+    rescue
+      attendance = 0
+    end
+    
+    
+    flag = true
+    last_game_number = 0
+    game_type = "regular"
+    
+    team_stat = team.get_team_stat(year, game_type)
+    team_stat.attendance = attendance
+    team_stat.arena = arena
+    #team_stat.conference = conference
+    team_stat.division = division
+    team_stat.save
+    while flag
+      anchor1 = '<tr onmouseover="hl(this);" onmouseout="uhl(this);" class="">'
+      anchor1_index = response.index(anchor1)
+      response = response[anchor1_index+anchor1.length..response.length-1]
+ 
+      anchor2 = '<td align="right" >'
+      anchor2_index = response.index(anchor2)
+  
+      anchor3 = '<tr onmouseover="hl(this);" onmouseout="uhl(this);" class="">'
+      anchor3_index = response.index(anchor3)
+      if anchor3_index.nil?
+        anchor3_index = response.index('<div id="site_footer">')
+        flag = false
+      end
+      
+      if anchor2_index < anchor3_index
+        text = response[0..anchor3_index]
+        game_number, text = find_between('<td align="right" >', '</td>', text)
+        if game_number.to_i < last_game_number && game_type == "regular"
+          game_type = "playoff"
+        end
+        last_game_number = game_number.to_i
+        game_date, text = find_between('<td align="left"  csk="', '">', text)
+        home_away, text = find_between('<td align="left" >', '</td>', text)
+        opponent, text = find_between('.html">', '</A></td>', text)
+        win_lose, text = find_between('<td align="left" >', '</td>', text)
+        ot, text = find_between('<td align="center" >', '</td>', text)
+        mp = 48
+        if ot != ""
+          if ot == "OT"
+            mp = mp + 5
+          else
+            mul = ot[0].to_i
+            mp = mp + 5*mul
+          end
+        end
+        team_score, text = find_between('<td align="right" >', '</td>', text)
+        opp_score, text = find_between('<td align="right" >', '</td>', text)
+        wins, text = find_between('<td align="right" >', '</td>', text)
+        losses, text = find_between('<td align="right" >', '</td>', text)
+        streak, text = find_between('<td align="left" >', '</td>', text)
+        notes, text = find_between('<td align="left" >', '</td>', text)
+        
+        #puts "***********"
+        #puts game_number
+        #puts game_type
+        #puts game_date
+        #puts home_away
+        #puts opponent
+        #puts win_lose
+        #puts ot
+        #puts mp
+        #puts team_score
+        
+        
+        if home_away == "" || home_away == "N" #only do home games
+          away_team = Team.find_by_full_name(opponent, year.to_i)
+          if home_away == "N"
+            neutral = 1
+          else
+            neutral = 0
+          end
+          
+          if !away_team.nil?
+            
+            game = Game.find(:first, :conditions => {:date_played => game_date, :home_team_id => team.id})
+            if game.nil?
+              game = Game.new
+              game.date_played = game_date
+              game.home_team_id = team.id
+            end
+            game.away_team_id = away_team.id
+            game.game_type = game_type
+            game.league = team.league
+            game.home_pts = team_score
+            game.away_pts = opp_score
+            game.ot = ot
+            game.minutes_played = mp
+            game.neutral = neutral
+            game.notes = notes
+            game.season = year
+            game.save
+          end
+        end
+      end
+    end    
+  end
+  
+  def find_between(start, finish, text)
+    l_start = start.length
+    l_finish = finish.length
+    start_index = text.index(start)
+    finish_index = text.index(finish, start_index)
+
+    return text[start_index+l_start..finish_index-1], text[finish_index+l_finish..text.length-1]
+  end
+  
 end
