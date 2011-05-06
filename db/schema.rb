@@ -10,7 +10,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20110419170448) do
+ActiveRecord::Schema.define(:version => 20110505140226) do
 
   create_table "awards", :force => true do |t|
     t.integer  "year"
@@ -206,6 +206,25 @@ ActiveRecord::Schema.define(:version => 20110419170448) do
     t.string   "notes"
     t.boolean  "neutral"
     t.integer  "season"
+    t.integer  "away_quarter1"
+    t.integer  "away_quarter2"
+    t.integer  "away_quarter3"
+    t.integer  "away_quarter4"
+    t.integer  "home_quarter1"
+    t.integer  "home_quarter2"
+    t.integer  "home_quarter3"
+    t.integer  "home_quarter4"
+    t.float    "away_efg_percent"
+    t.float    "away_tov_percent"
+    t.float    "away_orb_percent"
+    t.float    "away_ft_fga"
+    t.float    "away_ortg"
+    t.float    "home_efg_percent"
+    t.float    "home_tov_percent"
+    t.float    "home_orb_percent"
+    t.float    "home_ft_fga"
+    t.float    "home_ortg"
+    t.float    "pace"
   end
 
   create_table "players", :force => true do |t|
@@ -223,6 +242,32 @@ ActiveRecord::Schema.define(:version => 20110419170448) do
     t.string   "college"
     t.integer  "draft_round"
     t.integer  "draft_position"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+  end
+
+  create_table "playoff_series", :force => true do |t|
+    t.integer  "year"
+    t.integer  "round_from_finals"
+    t.integer  "favoured_team_id"
+    t.integer  "underdog_team_id"
+    t.integer  "game_1_id"
+    t.integer  "game_2_id"
+    t.integer  "game_3_id"
+    t.integer  "game_4_id"
+    t.integer  "game_5_id"
+    t.integer  "game_6_id"
+    t.integer  "game_7_id"
+    t.integer  "game_1_home_team_id"
+    t.integer  "game_2_home_team_id"
+    t.integer  "game_3_home_team_id"
+    t.integer  "game_4_home_team_id"
+    t.integer  "game_5_home_team_id"
+    t.integer  "game_6_home_team_id"
+    t.integer  "game_7_home_team_id"
+    t.integer  "games_played"
+    t.integer  "best_of"
+    t.integer  "series_winner_id"
     t.datetime "created_at"
     t.datetime "updated_at"
   end
@@ -283,6 +328,7 @@ ActiveRecord::Schema.define(:version => 20110419170448) do
     t.integer  "salary"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.integer  "team_id"
   end
 
   create_table "team_stats", :force => true do |t|

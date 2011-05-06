@@ -3,7 +3,7 @@ class CreateStats < ActiveRecord::Migration
     create_table :stats do |t|
       t.integer   :player_id
       t.integer   :season
-      t.string    :team_stat_id
+      t.string    :team_stats_id
       t.string    :season_type, :limit=>10
       t.string    :league,  :limit=>6
       t.integer   :g

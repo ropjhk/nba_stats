@@ -129,7 +129,7 @@ namespace 'scrape' do
             stat = Stats.new
             stat.player_id = player.id
             stat.season = line_array[1]
-            stat.team_stat_id = team_stat.id
+            stat.team_stats_id = team_stat.id
             stat.season_type = season_type
           end
           stat.league = line_array[5]
@@ -491,13 +491,165 @@ namespace 'scrape' do
     end    
   end
   
+  task :import_game_stats do
+    game = Game.find(22978)
+    get_game_data(game)
+  end
+  
+  def get_game_data(game)
+    home_team = game.get_home_team
+    home_brid = home_team.brid
+    away_team = game.get_away_team
+    away_brid = away_team.brid
+    date = game.date_played
+    
+    @uri = URI.parse "http://www.basketball-reference.com"
+    @download_path = "/boxscores/#{date.year}#{date.month}#{date.day}0#{home_brid}.html"
+    
+    #http = Net::HTTP.new(@uri.host, @uri.port)
+    #puts "#{@uri.host}, #{@uri.port} REQUEST: #{@download_path}"
+    
+    #get the file names from the current directory
+    #request = Net::HTTP::Get.new(@download_path)
+    #response = http.request(request).body
+    
+    f = File.open("#{Rails.root}/tmp/boxscore_example")
+    response = f.read
+    #puts response
+    
+    #Get scoring by quarter
+    away_anchor = response.index('<td><a href="/teams/'+away_brid+'/'+game.season.to_s+'.html">'+away_brid+'</a></td>')
+    response = response[away_anchor..response.length-1]
+    game.away_quarter1, response = find_between('<td align="right">', "</td>", response)
+    game.away_quarter2, response = find_between('<td align="right">', "</td>", response)
+    game.away_quarter3, response = find_between('<td align="right">', "</td>", response)
+    game.away_quarter4, response = find_between('<td align="right">', "</td>", response)
+    
+    home_anchor = response.index('<td><a href="/teams/'+home_brid+'/'+game.season.to_s+'.html">'+home_brid+'</a></td>')
+    response = response[home_anchor..response.length-1]
+    game.home_quarter1, response = find_between('<td align="right">', "</td>", response)
+    game.home_quarter2, response = find_between('<td align="right">', "</td>", response)
+    game.home_quarter3, response = find_between('<td align="right">', "</td>", response)
+    game.home_quarter4, response = find_between('<td align="right">', "</td>", response)
+    
+    #get team advanced stats
+    away_anchor2 = response.index('<td align="left" ><a href="/teams/'+away_brid+'/'+game.season.to_s+'.html">'+away_brid+'</A></td>')
+    response = response[away_anchor2..response.length-1]
+    game.pace, response = find_between('<td align="right" >', "</td>", response)
+    game.away_efg_percent, response = find_between('<td align="right" >', "</td>", response)
+    game.away_tov_percent, response = find_between('<td align="right" >', "</td>", response)
+    game.away_orb_percent, response = find_between('<td align="right" >', "</td>", response)
+    game.away_ft_fga, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
+    game.away_ortg, response = find_between('<td align="right" >', "</td>", response)
+    
+    home_anchor2 = response.index('<td align="left" ><a href="/teams/'+home_brid+'/'+game.season.to_s+'.html">'+home_brid+'</A></td>')
+    response = response[home_anchor2..response.length-1]
+    game.pace, response = find_between('<td align="right" >', "</td>", response)
+    game.home_efg_percent, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
+    game.home_tov_percent, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
+    game.home_orb_percent, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
+    game.home_ft_fga, response = find_between('<td align="right" >', "</td>", response)
+    game.home_ortg, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
+    
+    #get player game stats
+    away_box_anchor = response.index('<th align="center" colspan=19  class="bold_text over_header" >Basic Box Score Statistics</th>')
+    response = response[away_box_anchor..response.length-1]
+    
+    starter_bench = "starter"
+    starter_count = 5
+    away_home = "away"
+    player_team_id = away_team.id
+    flag = false
+    while !flag
+      player_anchor = response.index('<tr onmouseover="hl(this);" onmouseout="uhl(this);" class="">')
+      advanced_anchor = response.index('<th align="center" colspan=13  class="bold_text over_header" >Advanced Box Score Statistics</th>')
+      basic_anchor = response.index('<th align="center" colspan=19  class="bold_text over_header" >Basic Box Score Statistics</th>')
+      
+      if starter_count == 0
+        starter_bench = "bench"
+        starter_count = 5
+      end
+      if starter_bench == "starter"
+        starter_count -= 1
+      end
+      
+      if advanced_anchor - player_anchor < 100
+        starter_bench = "starter"
+        away_home = "home"
+        player_team_id = home_team.id
+        if !basic_anchor.nil?
+          response = response[basic_anchor..response.length-1]
+        else
+          flag = true
+        end
+      else
+        response = response[player_anchor..response.length-1]
+      
+        player_name, text = find_between('.html">', '</A></td>', response)
+        
+        player = Player.find_player_name_team_season(player_name, player_team_id, game.season)
+        
+        if !player.nil?
+          game_stat = player.get_game_stats(game.id)
+          if game_stat.nil?
+            game_stat = GameStat.new
+            game_stat.player_id = player.id
+            game_stat.game_id = game.id
+            game_stat.team_id = player_team_id
+          end
+          game_stat.starter = (starter_bench =="starter") ? true : false
+          game_stat.mp, text = find_between('">', '</td>', text)
+          game_stat.fg, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.fga, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.fgpercent, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.tfg, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.tfga, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.tfgpercent, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.ft, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.fta, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.ftpercent, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.orb, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.drb, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.trb, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.ast, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.stl, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.blk, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.tov, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.pf, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.pts, text = find_between('<td align="right" >', '</td>', text)
+          game_stat.save
+        end
+        response = text
+        
+      end
+    end
+    
+    officials, response = find_between('<strong>Officials:</strong>', "<br>", response)
+    attendance, response = find_between('<strong>Attendance:</strong>', "<br>", response)
+    game_time, response = find_between('<strong>Time of Game:</strong>', "<br>", response)
+    attendance = attendance.gsub(",","").strip
+    officials = officials.split(",")
+    puts attendance
+    puts game_time
+    game.attendance = attendance
+    puts game.attendance
+    puts game.home_quarter1
+    puts game.pace
+    puts game.id
+    game.save
+  end
+  
   def find_between(start, finish, text)
     l_start = start.length
     l_finish = finish.length
     start_index = text.index(start)
-    finish_index = text.index(finish, start_index)
+    if !start_index.nil?
+      finish_index = text.index(finish, start_index)
 
-    return text[start_index+l_start..finish_index-1], text[finish_index+l_finish..text.length-1]
+      return text[start_index+l_start..finish_index-1], text[finish_index+l_finish..text.length-1]
+    else
+      return nil, text
+    end
   end
   
 end

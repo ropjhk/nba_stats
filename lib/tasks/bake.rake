@@ -94,4 +94,127 @@ namespace 'bake' do
     end
   end
   
+  task :validate_playoffs do
+    games = Game.find(:all, :conditions => {:game_type => "playoff"}, :order => :date_played )
+    
+    games.each do |g|
+      home_team_id = g.home_team_id
+      away_team_id = g.away_team_id
+      ps = PlayoffSeries.get_playoff_series(home_team_id, away_team_id, g.season)
+      if ps.nil?
+        ps = PlayoffSeries.new
+        ps.favoured_team_id = home_team_id
+        ps.underdog_team_id = away_team_id
+        ps.year = g.season
+        ps.save
+      end
+      ps.insert_next_game(g.id, home_team_id)
+    end
+    
+    playoff_series = PlayoffSeries.find(:all, :order => "id desc")
+    playoff_series.each do |ps|
+      series_wins = 0
+      series_winner = nil
+      
+      if !ps.game_7_id.nil?
+        ps.games_played = 7
+        series_winner = ps.game_7.winner
+        series_wins += 1
+      end
+      if !ps.game_6_id.nil?
+        ps.games_played = 6 if ps.games_played.nil?
+        series_winner = ps.game_6.winner if series_winner.nil?
+        if series_winner == ps.game_6.winner
+          series_wins += 1
+        end
+      end
+      if !ps.game_5_id.nil?
+        ps.games_played = 5 if ps.games_played.nil?
+        series_winner = ps.game_5.winner if series_winner.nil?
+        if series_winner == ps.game_5.winner
+          series_wins += 1
+        end
+      end
+      if !ps.game_4_id.nil?
+        ps.games_played = 4 if ps.games_played.nil?
+        series_winner = ps.game_4.winner if series_winner.nil?
+        if series_winner == ps.game_4.winner
+          series_wins += 1
+        end
+      end
+      if !ps.game_3_id.nil?
+        ps.games_played = 3 if ps.games_played.nil?
+        series_winner = ps.game_3.winner if series_winner.nil?
+        if series_winner == ps.game_3.winner
+          series_wins += 1
+        end
+      end
+      if !ps.game_2_id.nil?
+        ps.games_played = 2 if ps.games_played.nil?
+        series_winner = ps.game_2.winner if series_winner.nil?
+        if series_winner == ps.game_2.winner
+          series_wins += 1
+        end
+      end
+      if !ps.game_1_id.nil?
+        ps.games_played = 1 if ps.games_played.nil?
+        series_winner = ps.game_1.winner if series_winner.nil?
+        if series_winner == ps.game_1.winner
+          series_wins += 1
+        end
+      end
+      ps.series_winner_id = series_winner
+      
+      if series_wins == 1
+        ps.best_of = 1
+      elsif series_wins == 2
+        ps.best_of = 3
+      elsif series_wins == 3
+        ps.best_of = 5
+      elsif series_wins == 4
+        ps.best_of = 7
+      end
+      
+      ps.save
+    end
+    
+  end
+  
+  task :bake_playoff_series do
+    playoff_series = PlayoffSeries.find(:all, :order => "id desc")
+    playoff_series.each do |ps|
+      ps.round_from_finals = -1
+      ps.save
+    end
+    year = 99999
+    playoff_series.each do |ps|
+      if ps.year < year
+        ps.round_from_finals = 0
+        year = ps.year
+      else
+        series_winner_id = ps.series_winner_id
+        next_series = PlayoffSeries.find(:first, :conditions => "(favoured_team_id = #{series_winner_id} or underdog_team_id = #{series_winner_id}) and year = #{ps.year} and round_from_finals != -1",:order => "id")
+        if next_series.nil?
+          ps.round_from_finals = 0
+        else
+          round = next_series.round_from_finals + 1
+          ps.round_from_finals = round
+        end
+      end
+      
+      ps.save
+    end
+  end
+  
+  task :setup_stats_team_id do
+    stats = Stats.find(:all)
+    stats.each do |s|
+      team_stat = s.team_stats
+      puts team_stat.id
+      team = team_stat.team
+      s.team_id = team.id
+      s.save
+    end
+  end
+  
 end
