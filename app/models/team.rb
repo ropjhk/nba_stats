@@ -13,6 +13,17 @@ class Team < ActiveRecord::Base
     return return_team
   end
   
+  def self.find_by_pid_year(pid,year)
+    teams = Team.find(:all, :conditions => "pid='#{pid}' and start_year <= #{year} and last_year >= #{year}" )
+    if teams.length==1
+      return teams[0]
+    else
+      teams = Team.find(:all, :conditions => "pid_aka='#{pid}' and start_year <= #{year} and last_year >= #{year}" )
+      if teams.length==1
+        return teams[0]
+      end
+    end
+  end
   
   def self.split_name(name)
     if name == "Spirits of St. Louis"

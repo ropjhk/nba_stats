@@ -121,48 +121,67 @@ namespace 'scrape' do
       while (c = f.gets)
         line_array = c.split(",")
         ppid = line_array[0].strip
-        player = Player.find(:first, :conditions => {:pid => ppid})
-        team_stat = TeamStats.find_by_team_and_year(line_array[4], line_array[1])
-        if !player.nil? && !team_stat.nil?
-          stat = Stats.find(:first, :conditions => {:player_id => player.id, :team_stat_id => team_stat.id, :season => line_array[1], :season_type => season_type})
-          if stat.nil?
-            stat = Stats.new
-            stat.player_id = player.id
-            stat.season = line_array[1]
-            stat.team_stats_id = team_stat.id
-            stat.season_type = season_type
+        teamid = line_array[4]
+        year = line_array[1].to_i+1
+        if teamid != "TOT"
+          player = Player.find(:first, :conditions => {:pid => ppid})
+          if player.nil?
+            #try to find through exact fist and last name
+            players = Player.find(:all, :conditions => {:first_name => line_array[2], :last_name => line_array[3]})
+            if players.length == 1
+              player = players[0]
+              player.pid_aka = line_array[0]
+              player.save
+            end
           end
-          stat.league = line_array[5]
-          stat.g      = line_array[6]
-          stat.mp  = line_array[7]
-          stat.pts = line_array[8]
-          stat.orb = line_array[9]
-          stat.drb = line_array[10]
-          stat.trb = line_array[11]
-          stat.ast = line_array[12]
-          stat.stl = line_array[13]
-          stat.blk = line_array[14]
-          stat.tov = line_array[15]
-          stat.pf  = line_array[16]
-          stat.fga = line_array[17]
-          stat.fg  = line_array[18]
-          if stat.fga > 0
-            stat.fgpercent = stat.fg.to_f/stat.fga.to_f
+          team_stat = TeamStats.find_by_team_and_year(line_array[4], year)
+          if !player.nil? && !team_stat.nil?
+            stat = Stats.find(:first, :conditions => {:player_id => player.id, :team_stats_id => team_stat.id, :season => year, :season_type => season_type})
+            if stat.nil?
+              stat = Stats.new
+              stat.player_id = player.id
+              stat.season = year
+              stat.team_stats_id = team_stat.id
+              stat.season_type = season_type
+            #end
+            puts "INSERT #{ppid} #{line_array[2]} #{line_array[3]} #{line_array[4]}, #{year}"
+            stat.league = line_array[5]
+            stat.g      = line_array[6]
+            stat.mp  = line_array[7]
+            stat.pts = line_array[8]
+            stat.orb = line_array[9]
+            stat.drb = line_array[10]
+            stat.trb = line_array[11]
+            stat.ast = line_array[12]
+            stat.stl = line_array[13]
+            stat.blk = line_array[14]
+            stat.tov = line_array[15]
+            stat.pf  = line_array[16]
+            stat.fga = line_array[17]
+            stat.fg  = line_array[18]
+            if stat.fga > 0
+              stat.fgpercent = stat.fg.to_f/stat.fga.to_f
+            end
+            stat.fta = line_array[19]
+            stat.ft  = line_array[20]
+            if stat.fta > 0
+              stat.ftpercent = stat.ft.to_f/stat.fta.to_f
+            end
+            stat.tfga = line_array[21]
+            stat.tfg  = line_array[22]
+            if stat.tfga > 0
+              stat.tfgpercent = stat.tfg.to_f/stat.tfga.to_f
+            end
+            stat.save
+            end
+            
+          elsif player.nil?
+            puts "Player Not Found: #{ppid} #{line_array[2]} #{line_array[3]} #{line_array[4]}, #{year}"
+          elsif team_stat.nil?
+            puts "Team Not Found: #{ppid} #{line_array[2]} #{line_array[3]} #{line_array[4]}, #{year}"
           end
-          stat.fta = line_array[19]
-          stat.ft  = line_array[20]
-          if stat.fta > 0
-            stat.ftpercent = stat.ft.to_f/stat.fta.to_f
-          end
-          stat.tfga = line_array[21]
-          stat.tfg  = line_array[22]
-          if stat.tfga > 0
-            stat.tfgpercent = stat.tfg.to_f/stat.tfga.to_f
-          end
-          stat.save
         end
       end
-      
     end
   end
 
@@ -491,9 +510,51 @@ namespace 'scrape' do
     end    
   end
   
+  task :get_stats_from_box do
+    stats = Stats.find(:all, :conditions => {:salary => 1})
+    stats.each do |stat|
+      game_stats = GameStat.find(:all, :conditions => {:team_id => stat.team_id, :player_id => stat.player_id, :season => stat.season})
+      gs_array = Array.new
+      game_stats.each do |gs|
+        game = Game.find(gs.game_id)
+        if game.game_type == stat.season_type
+          gs_array << gs
+        end
+      end
+      mp = 0.0
+      gs_array.each do |gs|
+        stat.g += 1
+        stat.gs += 1 if gs.starter == true
+        mp += gs.mp
+        stat.fg += gs.fg
+        stat.fga += gs.fga
+        stat.tfg += gs.tfg
+        stat.tfga += gs.tfga
+        stat.ft += gs.ft
+        stat.fta += gs.fta
+        stat.orb += gs.orb
+        stat.drb += gs.drb
+        stat.trb += gs.trb
+        stat.ast += gs.ast
+        stat.stl += gs.stl
+        stat.blk += gs.blk
+        stat.tov += gs.tov
+        stat.pf += gs.pf
+        stat.pts += gs.pts
+      end
+      stat.mp = mp.to_i
+      stat.save
+    end
+  end
+  
   task :import_game_stats do
-    game = Game.find(22978)
-    get_game_data(game)
+    #game = Game.find(7471)
+    #get_game_data(game)
+    # and game_type = 'regular'
+    games = Game.find(:all, :conditions => "date_played > '1986-10-10' and date_played < '2010-07-10' and validated = 0", :order => "date_played asc")
+    games.each do |game|
+      get_game_data(game)
+    end
   end
   
   def get_game_data(game)
@@ -502,19 +563,22 @@ namespace 'scrape' do
     away_team = game.get_away_team
     away_brid = away_team.brid
     date = game.date_played
+    month = date.month.to_s
+    month = "0" + month if date.month < 10
+    day = date.day.to_s
+    day = "0" + day if date.day < 10
     
     @uri = URI.parse "http://www.basketball-reference.com"
-    @download_path = "/boxscores/#{date.year}#{date.month}#{date.day}0#{home_brid}.html"
+    @download_path = "/boxscores/#{date.year}#{month}#{day}0#{home_brid}.html"
     
-    #http = Net::HTTP.new(@uri.host, @uri.port)
-    #puts "#{@uri.host}, #{@uri.port} REQUEST: #{@download_path}"
-    
+    http = Net::HTTP.new(@uri.host, @uri.port)
+    puts "#{@uri.host}, #{@uri.port} REQUEST: #{@download_path}"
     #get the file names from the current directory
-    #request = Net::HTTP::Get.new(@download_path)
-    #response = http.request(request).body
+    request = Net::HTTP::Get.new(@download_path)
+    response = http.request(request).body
     
-    f = File.open("#{Rails.root}/tmp/boxscore_example")
-    response = f.read
+    #f = File.open("#{Rails.root}/tmp/boxscore_example")
+    #response = f.read
     #puts response
     
     #Get scoring by quarter
@@ -533,23 +597,26 @@ namespace 'scrape' do
     game.home_quarter4, response = find_between('<td align="right">', "</td>", response)
     
     #get team advanced stats
+    advanced_stats = Hash.new
     away_anchor2 = response.index('<td align="left" ><a href="/teams/'+away_brid+'/'+game.season.to_s+'.html">'+away_brid+'</A></td>')
     response = response[away_anchor2..response.length-1]
-    game.pace, response = find_between('<td align="right" >', "</td>", response)
-    game.away_efg_percent, response = find_between('<td align="right" >', "</td>", response)
-    game.away_tov_percent, response = find_between('<td align="right" >', "</td>", response)
-    game.away_orb_percent, response = find_between('<td align="right" >', "</td>", response)
-    game.away_ft_fga, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
-    game.away_ortg, response = find_between('<td align="right" >', "</td>", response)
+    advanced_stats[:pace], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:efg_percent], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:tov_percent], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:orb_percent], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:ft_fga], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:ortg], response = find_between('<td align="right" ', "</td>", response)
+    game.insert_advanced_stats_hash(advanced_stats, "away")
     
     home_anchor2 = response.index('<td align="left" ><a href="/teams/'+home_brid+'/'+game.season.to_s+'.html">'+home_brid+'</A></td>')
     response = response[home_anchor2..response.length-1]
-    game.pace, response = find_between('<td align="right" >', "</td>", response)
-    game.home_efg_percent, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
-    game.home_tov_percent, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
-    game.home_orb_percent, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
-    game.home_ft_fga, response = find_between('<td align="right" >', "</td>", response)
-    game.home_ortg, response = find_between('<td align="right"  class=" highlight_text">', "</td>", response)
+    advanced_stats[:pace], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:efg_percent], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:tov_percent], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:orb_percent], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:ft_fga], response = find_between('<td align="right" ', "</td>", response)
+    advanced_stats[:ortg], response = find_between('<td align="right" ', "</td>", response)
+    game.insert_advanced_stats_hash(advanced_stats, "home")
     
     #get player game stats
     away_box_anchor = response.index('<th align="center" colspan=19  class="bold_text over_header" >Basic Box Score Statistics</th>')
@@ -574,6 +641,11 @@ namespace 'scrape' do
       end
       
       if advanced_anchor - player_anchor < 100
+        team_total_anchor = response.index('<tr onmouseover="hl(this);" onmouseout="uhl(this);" class="bold_text stat_total">')
+        
+        team_stats = get_team_stats_hash(response[team_total_anchor..response.length-1])
+        game.insert_team_stats_hash(team_stats, away_home)
+        
         starter_bench = "starter"
         away_home = "home"
         player_team_id = home_team.id
@@ -584,10 +656,16 @@ namespace 'scrape' do
         end
       else
         response = response[player_anchor..response.length-1]
-      
+        player_brid, text = find_between("/players/",'.html', response)
+        player_brid = player_brid.split("/")[1]
         player_name, text = find_between('.html">', '</A></td>', response)
         
         player = Player.find_player_name_team_season(player_name, player_team_id, game.season)
+        
+        if player == -1
+          puts "SEARCH: #{player_brid}"
+          player = Player.find_by_pid_aka(player_brid)
+        end
         
         if !player.nil?
           game_stat = player.get_game_stats(game.id)
@@ -598,7 +676,12 @@ namespace 'scrape' do
             game_stat.team_id = player_team_id
           end
           game_stat.starter = (starter_bench =="starter") ? true : false
-          game_stat.mp, text = find_between('">', '</td>', text)
+          mp, text = find_between('">', '</td>', text)
+          if mp.include?(":")
+            game_times = mp.split(":")
+            mp = game_times[0].to_i + game_times[1].to_f/60
+          end
+          game_stat.mp = mp
           game_stat.fg, text = find_between('<td align="right" >', '</td>', text)
           game_stat.fga, text = find_between('<td align="right" >', '</td>', text)
           game_stat.fgpercent, text = find_between('<td align="right" >', '</td>', text)
@@ -618,6 +701,7 @@ namespace 'scrape' do
           game_stat.pf, text = find_between('<td align="right" >', '</td>', text)
           game_stat.pts, text = find_between('<td align="right" >', '</td>', text)
           game_stat.save
+          #end
         end
         response = text
         
@@ -627,15 +711,25 @@ namespace 'scrape' do
     officials, response = find_between('<strong>Officials:</strong>', "<br>", response)
     attendance, response = find_between('<strong>Attendance:</strong>', "<br>", response)
     game_time, response = find_between('<strong>Time of Game:</strong>', "<br>", response)
-    attendance = attendance.gsub(",","").strip
-    officials = officials.split(",")
-    puts attendance
-    puts game_time
-    game.attendance = attendance
-    puts game.attendance
-    puts game.home_quarter1
-    puts game.pace
-    puts game.id
+    if !officials.nil?
+      officials = officials.split(",")
+      officials.each do |name|
+        ref_id = Referee.find_full_name(name)
+        game.store_ref(ref_id)
+      end
+    end
+    if !game_time.nil?
+      if game_time.include?(":")
+        game_times = game_time.split(":")
+        game.duration_mins = game_times[0].to_i*60 + game_times[1].to_i
+      else
+        game.duration_mins = game_time
+      end
+    end
+    if !attendance.nil?
+      attendance = attendance.gsub(",","").strip
+      game.attendance = attendance
+    end
     game.save
   end
   
@@ -646,10 +740,35 @@ namespace 'scrape' do
     if !start_index.nil?
       finish_index = text.index(finish, start_index)
 
-      return text[start_index+l_start..finish_index-1], text[finish_index+l_finish..text.length-1]
+      return_val = text[start_index+l_start..finish_index-1].gsub(' class=" highlight_text">','').gsub(">","")
+      return_val = return_val
+      return return_val, text[finish_index+l_finish..text.length-1]
     else
       return nil, text
     end
   end
   
+  def get_team_stats_hash(text)
+    team_stats = Hash.new
+    team_stats[:mp], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:fg], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:fga], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:fg_percent], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:tfg], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:tfga], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:tfg_percent], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:ft], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:fta], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:ft_percent], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:orb], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:drb], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:trb], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:ast], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:stl], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:blk], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:tov], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:pf], text = find_between('<td align="right" >', '</td>', text)
+    team_stats[:pts], text = find_between('<td align="right" >', '</td>', text)
+    return team_stats
+  end
 end

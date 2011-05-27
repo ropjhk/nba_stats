@@ -29,6 +29,16 @@ namespace 'bake' do
     end
   end
   
+  task :game_stat_season do
+    games = Game.find(:all)
+    games.each do |g|
+      game_stats = GameStat.find(:all, :conditions => {:game_id => g.id})
+      game_stats.each do |gs|
+        gs.season = g.season
+        gs.save
+      end
+    end
+  end
   
   task :game_season do
     games= Game.find(:all)
@@ -206,6 +216,18 @@ namespace 'bake' do
     end
   end
   
+  task :setup_last_name_aka do
+    players = Player.find(:all)
+    players.each do |p|
+      last_name = p.last_name
+      lns = last_name.split(" ")
+      if lns.length > 1 && p.last_name_aka.nil?
+        p.last_name_aka = lns[lns.length-1]
+        p.save
+      end
+    end
+  end
+  
   task :setup_stats_team_id do
     stats = Stats.find(:all)
     stats.each do |s|
@@ -215,6 +237,69 @@ namespace 'bake' do
       s.team_id = team.id
       s.save
     end
+  end
+  
+  task :draft_data do
+    players = Player.find(:all)
+    players.each do |p|
+      drafts = p.drafts.find_all_by_league("N")
+      if !drafts.nil? && drafts.length == 1
+        draft = drafts[0]
+        p.draft_round = draft.draft_round
+        p.draft_position = draft.selection
+        p.draft_year = draft.year
+        p.save
+      end
+    end
+  end
+  
+  task :validate_box_scores do
+    games=Game.find(:all, :conditions => "home_fg > 0 and validated <> 1")
+    games.each do |game|
+      game.validated = vbs(game)
+      game.save
+    end
+  end
+  
+  def vbs(game)
+    valid = true #assume true
+    away_game_stats = GameStat.find(:all, :conditions => {:game_id => game.id, :team_id => game.away_team_id})
+    tm = summate(away_game_stats)
+    valid = false if game.away_pts != tm[:pts]
+    valid = false if game.away_trb != tm[:trb]
+    valid = false if game.away_ast != tm[:ast]
+    valid = false if game.away_stl != tm[:stl]
+    valid = false if game.away_tov != tm[:tov]
+    valid = false if game.away_pf != tm[:pf]
+    
+    home_game_stats = GameStat.find(:all, :conditions => {:game_id => game.id, :team_id => game.home_team_id})
+    tm = summate(home_game_stats)
+    valid = false if game.home_pts != tm[:pts]
+    valid = false if game.home_trb != tm[:trb]
+    valid = false if game.home_ast != tm[:ast]
+    valid = false if game.home_stl != tm[:stl]
+    valid = false if game.home_tov != tm[:tov]
+    valid = false if game.home_pf != tm[:pf]
+    return valid
+  end
+  
+  def summate(game_stats)
+    test_matrix = {:pts=>0, :trb=>0, :ast=>0,:stl=>0,:tov=>0,:pf=>0}
+    game_stats.each do |gs|
+      test_matrix[:pts] += gs.pts
+      test_matrix[:trb] += gs.trb
+      test_matrix[:ast] += gs.ast
+      test_matrix[:stl] += gs.stl
+      test_matrix[:tov] += gs.tov
+      test_matrix[:pf] += gs.pf
+    end
+    return test_matrix
+  end
+  
+  task :resolve_neutrality do
+    #games = Game.find(:all, :conditions => :neutral => 1, :order => "notes, date_played")
+    #[{"Bethlehem, PA", 63},{"Camden, NJ", 63}, {"Dayton, OH", 17}]
+    #games.each do |g|
   end
   
 end

@@ -20,6 +20,7 @@ class AddGameColumns < ActiveRecord::Migration
     add_column(:games, :home_ortg, :float)
     add_column(:games, :pace, :float)
     add_column(:stats, :team_id, :integer)
+    add_column(:games, :duration_mins, :integer)
   end
 
   def self.down
@@ -43,5 +44,6 @@ class AddGameColumns < ActiveRecord::Migration
     remove_column(:games, :home_ortg)
     remove_column(:games, :pace)
     remove_column(:stats, :team_id)
+    remove_column(:games, :duration_mins)
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20110505140226) do
+ActiveRecord::Schema.define(:version => 20110513190424) do
 
   create_table "awards", :force => true do |t|
     t.integer  "year"
@@ -127,7 +127,7 @@ ActiveRecord::Schema.define(:version => 20110505140226) do
     t.integer  "game_id"
     t.integer  "team_id"
     t.boolean  "starter"
-    t.integer  "mp"
+    t.float    "mp"
     t.integer  "fg"
     t.integer  "fga"
     t.float    "fgpercent"
@@ -148,7 +148,11 @@ ActiveRecord::Schema.define(:version => 20110505140226) do
     t.integer  "pts"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.integer  "season"
   end
+
+  add_index "game_stats", ["game_id"], :name => "index_game_stats_on_game_id"
+  add_index "game_stats", ["player_id"], :name => "index_game_stats_on_player_id"
 
   create_table "games", :force => true do |t|
     t.date     "date_played"
@@ -225,6 +229,52 @@ ActiveRecord::Schema.define(:version => 20110505140226) do
     t.float    "home_ft_fga"
     t.float    "home_ortg"
     t.float    "pace"
+    t.integer  "duration_mins"
+    t.boolean  "validated"
+  end
+
+  create_table "player_graphs", :force => true do |t|
+    t.string   "category"
+    t.integer  "num_players_analyzed"
+    t.float    "minutes_played"
+    t.float    "blk_per_min"
+    t.float    "points_per_min"
+    t.float    "orb_per_min"
+    t.float    "drb_per_min"
+    t.float    "rebounds_per_min"
+    t.float    "ast_per_min"
+    t.float    "stl_per_min"
+    t.float    "tov_per_min"
+    t.float    "fg_per_min"
+    t.float    "fga_per_min"
+    t.float    "ft_per_min"
+    t.float    "fta_per_min"
+    t.float    "tfg_per_min"
+    t.float    "tfga_per_min"
+    t.float    "blk_per_game"
+    t.float    "points_per_game"
+    t.float    "orb_per_game"
+    t.float    "drb_per_game"
+    t.float    "rebounds_per_game"
+    t.float    "ast_per_game"
+    t.float    "stl_per_game"
+    t.float    "tov_per_game"
+    t.float    "fg_per_game"
+    t.float    "fga_per_game"
+    t.float    "ft_per_game"
+    t.float    "fta_per_game"
+    t.float    "tfg_per_game"
+    t.float    "tfga_per_game"
+    t.float    "salary"
+    t.float    "min_per_game"
+    t.float    "per"
+    t.float    "games"
+    t.float    "games_started"
+    t.float    "ft_percentage"
+    t.float    "fg_percentage"
+    t.float    "tfg_percentage"
+    t.datetime "created_at"
+    t.datetime "updated_at"
   end
 
   create_table "players", :force => true do |t|
@@ -244,6 +294,10 @@ ActiveRecord::Schema.define(:version => 20110505140226) do
     t.integer  "draft_position"
     t.datetime "created_at"
     t.datetime "updated_at"
+    t.integer  "draft_year"
+    t.string   "first_name_aka"
+    t.string   "last_name_aka"
+    t.string   "pid_aka"
   end
 
   create_table "playoff_series", :force => true do |t|
@@ -301,9 +355,9 @@ ActiveRecord::Schema.define(:version => 20110505140226) do
   create_table "stats", :force => true do |t|
     t.integer  "player_id"
     t.integer  "season"
-    t.string   "team_stat_id"
-    t.string   "season_type",  :limit => 10
-    t.string   "league",       :limit => 6
+    t.string   "team_stats_id"
+    t.string   "season_type",   :limit => 10
+    t.string   "league",        :limit => 6
     t.integer  "g"
     t.integer  "gs"
     t.integer  "mp"
@@ -399,6 +453,7 @@ ActiveRecord::Schema.define(:version => 20110505140226) do
     t.integer  "prev_team_id"
     t.integer  "next_team_id"
     t.string   "brid",           :limit => 5
+    t.string   "pid_aka"
   end
 
 end
