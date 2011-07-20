@@ -1,0 +1,43 @@
+class AddSomeCols < ActiveRecord::Migration
+  def self.up
+    #add_column(:average_players, :category, :string)
+    #add_column(:average_players, :blk48, :float)
+    #add_column(:average_players, :pts48, :float)
+    #add_column(:average_players, :orb48, :float)
+    #add_column(:average_players, :drb48, :float)
+    #add_column(:average_players, :trb48, :float)
+   # add_column(:average_players, :ast48, :float)
+   # add_column(:average_players, :stl48, :float)
+   # add_column(:average_players, :tov48, :float)
+   # add_column(:average_players, :pf48, :float)
+   # add_column(:average_players, :fg48, :float)
+   # add_column(:average_players, :fga48, :float)
+   # add_column(:average_players, :ft48, :float)
+   # add_column(:average_players, :fta48, :float)
+   # add_column(:average_players, :tfg48, :float)
+   # add_column(:average_players, :tfga48, :float)
+   # add_column(:average_players, :pf, :float)
+    add_column(:stats, :per, :float)
+    add_column(:team_stats, :salary, :integer)
+  end
+
+  def self.down
+    #remove_column(:average_players, :category)
+    #remove_column(:average_players, :blk48)
+    #remove_column(:average_players, :pts48)
+    #remove_column(:average_players, :orb48)
+    #remove_column(:average_players, :drb48)
+    #remove_column(:average_players, :trb48)
+    #remove_column(:average_players, :ast48)
+    #remove_column(:average_players, :stl48)
+    #remove_column(:average_players, :tov48)
+    #remove_column(:average_players, :pf48)
+    #remove_column(:average_players, :fg48)
+    #remove_column(:average_players, :fga48)
+    #remove_column(:average_players, :ft48)
+    #remove_column(:average_players, :fta48)
+    #remove_column(:average_players, :tfg48)
+    #remove_column(:average_players, :tfga48)
+    #remove_column(:average_players, :pf)
+  end
+end

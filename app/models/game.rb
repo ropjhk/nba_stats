@@ -1,4 +1,5 @@
 class Game < ActiveRecord::Base
+  has_many :game_stats
   def get_home_team
     team = Team.find(self.home_team_id)
   end

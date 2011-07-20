@@ -1,5 +1,6 @@
 class Player < ActiveRecord::Base
   has_many :stats
+  has_many :game_stats
   has_many :drafts
   
   def self.find_player_name_team_season(player_name, team_id, season, pid_aka="")
@@ -71,9 +72,9 @@ class Player < ActiveRecord::Base
   def get_stats(season, team_id=-1)
     return_val = nil
     if team_id == -1
-      return_val = Stats.find(:all, :conditions => {:player_id => self.id, :season=>season})
+      return_val = Stat.find(:all, :conditions => {:player_id => self.id, :season=>season})
     else
-      return_val = Stats.find(:first, :conditions => {:player_id => self.id, :season=>season, :team_id=>team_id})
+      return_val = Stat.find(:first, :conditions => {:player_id => self.id, :season=>season, :team_id=>team_id})
     end
     return_val
   end
@@ -92,6 +93,9 @@ class Player < ActiveRecord::Base
       elsif names[1][1] == "."
         first_name = names[0]+" "+names[1]
         last_name = names[2]
+      elsif names[1] == "Van"
+        first_name = names[0]
+        last_name = names[1] + names[2]
       elsif names.length == 3
         first_name = names[0]+" "+names[1]
         last_name = names[2]

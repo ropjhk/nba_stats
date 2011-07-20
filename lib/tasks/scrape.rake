@@ -27,6 +27,164 @@ namespace 'scrape' do
     end
   end
   
+  task :import_all_nba do 
+    file_name = "#{Rails.root}/tmp/databasebasketball2009/all_nba.csv"
+    
+    f = File.open(file_name)
+    
+    f_pos = "sf"
+    g_pos = "pg"
+    while (c = f.gets)
+      line_array = c.split(",")
+      
+      if line_array[0].include?("NBA") || line_array[0].include?("ABA")
+        if line_array[0].include?("NBA")
+          league = "N"
+        else
+          league = "A"
+        end
+        year = line_array[0][0..3].to_i + 1
+      elsif line_array[0].include?("Team")
+        team = line_array[0][0]
+      else
+        award = Awards.find(:first, :conditions=>{:year=>year,:league=>league})
+        if award.nil?
+          award = Awards.new
+          award.year=year
+          award.league=league
+        end
+        if year > 1955
+          0.upto(1) do |i|
+            if !line_array[i].nil?
+              position = line_array[i][0].downcase
+              if position == "f"
+                position = f_pos
+                if f_pos == "sf"
+                  f_pos = "pf" 
+                else
+                  f_pos = "sf"
+                end
+              end
+              if position == "g"
+                position = g_pos
+                if g_pos == "sg"
+                  g_pos = "pg" 
+                else
+                  g_pos = "sg"
+                end
+              end
+              player_name = line_array[i][3..line_array[i].length]
+            end   
+          end    
+
+          if player_name != "" && player_name != "\n" && !player_name.nil?
+            player_name = player_name.strip.gsub("\n","")
+            first_name, last_name = Player.process_player_name(player_name)
+            player = Player.find(:all, :conditions => "(first_name like \"#{first_name}\" or first_name_aka like \"#{first_name}\") and (last_name like \"#{last_name}\" or last_name_aka like \"#{last_name}\") and first_active_year <= #{year} and last_active_year >= #{year}")
+            if player.length == 1
+              player_id = player[0].id
+            else
+              player_id = -1
+            end
+            award["all_nba_#{team}_#{position}"] = player_id
+            award.save
+          end
+
+        end
+      end
+      
+    end
+  end
+  
+  task :import_defensive_teams do
+    file_name = "#{Rails.root}/tmp/databasebasketball2009/all_defense_teams.csv"
+    
+    f = File.open(file_name)
+    while (c = f.gets)
+      line_array = c.split(",")
+      
+      if line_array[0].include?("NBA") || line_array[0].include?("ABA")
+        if line_array[0].include?("NBA")
+          league = "N"
+        else
+          league = "A"
+        end
+        year = line_array[0][0..3].to_i + 1
+      elsif line_array[0].include?("Team")
+        team = line_array[0][0]
+      else
+        award = Awards.find(:first, :conditions=>{:year=>year,:league=>league})
+        if award.nil?
+          award = Awards.new
+          award.year=year
+          award.league=league
+        end
+        player_name = line_array[0]
+        if player_name != "" && player_name != "\n"
+          puts "|"+player_name+"|"
+          first_name, last_name = Player.process_player_name(player_name)
+          player = Player.find(:all, :conditions => {:first_name => first_name, :last_name => last_name})
+          if player.length == 1
+            player_id = player[0].id
+          else
+            player_id = -1
+          end
+          position = line_array[1].gsub("\n","")
+          if award["all_defense_#{team}_#{position}"].nil?
+            puts "#{award.id}|#{award.year}|#{award["finals_mvp"]} all_defense_#{team}_#{position} = #{player_id}"
+            key = "all_defense_#{team}_#{position}"
+            
+            #award["all_defense_#{team}_#{position}"] = player_id 
+            award[key.to_s] = player_id 
+            puts award["all_defense_#{team}_pg"]
+            award.save
+          else
+            award["all_defense_#{team}_extra"] = player_id
+          end
+          award.save
+        end
+      end
+      
+      
+    end
+  end
+  
+  task :import_awards_file do 
+    file_name = "#{Rails.root}/tmp/databasebasketball2009/awards.csv"
+    
+    f = File.open(file_name)
+    while (c = f.gets)
+      line_array = c.split(",")
+      if line_array[1]==""
+        award_type = line_array[0]  
+      else
+        year = line_array[0]
+        year = year[0..1]+year[5..6] if year.include?("-")
+        year = '2000' if year == '1900'
+        league = line_array[1][0]
+        puts year + ":" + league
+        award = Awards.find(:first, :conditions=>{:year=>year,:league=>league})
+        if award.nil?
+          award = Awards.new
+          award.year=year
+          award.league=league
+        end
+        puts line_array[3]
+        team=Team.find_by_brid(line_array[3].strip)
+        player=Player.find_player_name_team_season(line_array[2].strip,team.id,year)
+        if player.nil?
+          player_id =-1
+        else
+          player_id = player.id
+        end
+        award[award_type] = player_id
+        award.save
+      end
+      
+      
+    end
+  end
+  
   task :import_team_file do
     file_name = "#{Rails.root}/tmp/databasebasketball2009/teams.csv"
     
@@ -63,9 +221,9 @@ namespace 'scrape' do
       
       team = Team.find_by_pid(line_array[0])
       if !team.nil?
-        team_stat = TeamStats.find(:first, :conditions => {:team_id => team.id, :year => line_array[1], :season_type => season_type})
+        team_stat = TeamStat.find(:first, :conditions => {:team_id => team.id, :year => line_array[1], :season_type => season_type})
         if team_stat.nil?
-          team_stat = TeamStats.new
+          team_stat = TeamStat.new
           team_stat.team_id = team.id
           team_stat.year = line_array[1]
           team_stat.season_type = season_type
@@ -134,11 +292,11 @@ namespace 'scrape' do
               player.save
             end
           end
-          team_stat = TeamStats.find_by_team_and_year(line_array[4], year)
+          team_stat = TeamStat.find_by_team_and_year(line_array[4], year)
           if !player.nil? && !team_stat.nil?
-            stat = Stats.find(:first, :conditions => {:player_id => player.id, :team_stats_id => team_stat.id, :season => year, :season_type => season_type})
+            stat = Stat.find(:first, :conditions => {:player_id => player.id, :team_stats_id => team_stat.id, :season => year, :season_type => season_type})
             if stat.nil?
-              stat = Stats.new
+              stat = Stat.new
               stat.player_id = player.id
               stat.season = year
               stat.team_stats_id = team_stat.id
@@ -224,7 +382,7 @@ namespace 'scrape' do
       end
       tpid = line_array[9].strip
       coach = Coach.find(:first, :conditions => {:pid => cpid})
-      team_stat = TeamStats.find_by_team_and_year(tpid, year)
+      team_stat = TeamStat.find_by_team_and_year(tpid, year)
       puts coach.first_name if !coach.nil?
       puts team_stat.year if !team_stat.nil?
       if !coach.nil? && !team_stat.nil?
@@ -511,7 +669,7 @@ namespace 'scrape' do
   end
   
   task :get_stats_from_box do
-    stats = Stats.find(:all, :conditions => {:salary => 1})
+    stats = Stat.find(:all, :conditions => {:salary => 1})
     stats.each do |stat|
       game_stats = GameStat.find(:all, :conditions => {:team_id => stat.team_id, :player_id => stat.player_id, :season => stat.season})
       gs_array = Array.new

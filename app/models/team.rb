@@ -86,6 +86,6 @@ class Team < ActiveRecord::Base
   end
   
   def get_team_stat(year, season_type)
-    team_stat = TeamStats.find(:first, :conditions => {:year => year, :team_id => self.id, :season_type => season_type})
+    team_stat = TeamStat.find(:first, :conditions => {:year => year, :team_id => self.id, :season_type => season_type})
   end
 end

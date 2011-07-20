@@ -7,7 +7,7 @@ namespace 'bake' do
     teams = Team.find(:all)
     
     teams.each do |team|
-      team_stats = TeamStats.find(:all, :conditions => {:team_id => team.id})
+      team_stats = TeamStat.find(:all, :conditions => {:team_id => team.id})
       
       start_year = 999999
       end_year = 0
@@ -26,6 +26,147 @@ namespace 'bake' do
       team.start_year = start_year
       team.last_year = end_year
       team.save
+    end
+  end
+  
+  task :build_playoff_team_stats do
+  end
+  
+  task :calculate_per do
+    stats = Stat.find_all_by_season(2010)
+    stats.each do |s|
+      
+    end
+  end
+  
+  task :compile_league_stats do
+    1947.upto(2010) do |year|
+      team_stats = TeamStat.find_all_by_year(year)
+      ls = LeagueStat.find_by_year(year)
+      statskey = {:mp=>0,:fg=>0,:fga=>0,:tfg=>0,:tfga=>0,:ft=>0,:fta=>0,:orb=>0,:drb=>0,:trb=>0,:blk=>0,:stl=>0,:ast=>0,:tov=>0,:pf=>0,:pts=>0}
+      ls = LeagueStat.new({:league=>"N",:season_type=>"regular",:year => year, :g=>0, :mp=>0,:fg=>0,:fga=>0,:tfg=>0,:tfga=>0,:ft=>0,:fta=>0,:orb=>0,:drb=>0,:trb=>0,:blk=>0,:stl=>0,:ast=>0,:tov=>0,:pf=>0,:pts=>0}) if ls.nil?
+      team_stats.each do |ts|
+        ls[:num_teams] += 1
+        ls[:g] += ts.wins
+        statskey.keys.each do |key|
+          statskey[key] += ts[key] if !ts[key].nil?
+        end
+      end
+      ls.attributes = statskey
+      ls.save
+    end
+  end
+  
+  task :games_started do
+    2010.upto(2010) do |year|
+      s=nil
+      puts "calculating #{year}"
+      game_stats = GameStat.find(:all, :conditions => "season = #{year} and id > 50")
+      
+      game_stats.each do |gs|
+        if gs.game.game_type == "playoff"
+          stat = Stat.find(:all, :conditions => {:player_id => gs.player_id, :season => gs.season, :team_id => gs.team_id, :season_type => gs.game.game_type})
+          
+          if stat.length == 1
+            #stat[0].gs += 1
+            #stat[0].save
+            #puts "OK #{gs.id}"
+            s = stat[0]
+#            s[:g] += 1
+#            s[:gs] += 1 if gs.starter
+            s[:mp] += gs[:mp].round
+=begin
+            s[:fg] += gs[:fg]
+            s[:fga] += gs[:fga]
+            s[:tfg] += gs[:tfg]
+            s[:tfga] += gs[:tfga]
+            s[:ft] += gs[:ft]
+            s[:fta] += gs[:fta]
+            s[:orb] += gs[:orb]
+            s[:drb] += gs[:drb]
+            s[:trb] += gs[:trb]
+            s[:ast] += gs[:ast]
+            s[:stl] += gs[:stl]
+            s[:blk] += gs[:blk]
+            s[:tov] += gs[:tov]
+            s[:pf] += gs[:pf]
+            s[:pts] += gs[:pts]
+=end
+            s.save
+          else
+            puts "TROUBLE: #{gs.id}"
+ #           create stat
+            s = {:player_id =>gs.player_id,:season => gs.season,:team_id=>gs.team_id,:season_type=>gs.game.game_type,:team_stats_id => TeamStat.find(:first, :conditions => "year = #{year} and team_id = #{gs.team_id}").id,
+              :league => "N",:g => 0,:gs=>0,:mp=>0,:fg=>0,:fga=>0,:tfg=>0,:tfga=>0,:ft=>0,:fta=>0,:orb=>0,:drb=>0,:trb=>0,:blk=>0,:stl=>0,:ast=>0,:tov=>0,:pf=>0,:pts=>0}
+            s[:g] += 1
+            s[:gs] += 1 if gs.starter
+            s[:mp] += gs[:mp].round
+            s[:fg] += gs[:fg]
+            s[:fga] += gs[:fga]
+            s[:tfg] += gs[:tfg]
+            s[:tfga] += gs[:tfga]
+            s[:ft] += gs[:ft]
+            s[:fta] += gs[:fta]
+            s[:orb] += gs[:orb]
+            s[:drb] += gs[:drb]
+            s[:trb] += gs[:trb]
+            s[:ast] += gs[:ast]
+            s[:stl] += gs[:stl]
+            s[:blk] += gs[:blk]
+            s[:tov] += gs[:tov]
+            s[:pf] += gs[:pf]
+            s[:pts] += gs[:pts]
+#            ns = Stat.new(s)
+#            ns.save
+#            puts ns.id
+=begin          
+            if gs.player_id == 2751
+              if s.nil?
+                s = {:player_id =>gs.player_id,:season => gs.season,:team_id=>gs.team_id,:season_type=>gs.game.game_type,:team_stats_id => TeamStat.find(:first, :conditions => "year = #{year} and team_id = #{gs.team_id}").id,
+                  :league => "N",:g => 0,:gs=>0,:mp=>0,:fg=>0,:fga=>0,:tfg=>0,:tfga=>0,:ft=>0,:fta=>0,:orb=>0,:drb=>0,:trb=>0,:blk=>0,:stl=>0,:ast=>0,:tov=>0,:pf=>0,:pts=>0}
+              end
+              s[:g] += 1
+              s[:gs] += 1 if gs.starter
+              s[:mp] += gs[:mp]
+              s[:fg] += gs[:fg]
+              s[:fga] += gs[:fga]
+              s[:tfg] += gs[:tfg]
+              s[:tfga] += gs[:tfga]
+              s[:ft] += gs[:ft]
+              s[:fta] += gs[:fta]
+              s[:orb] += gs[:orb]
+              s[:drb] += gs[:drb]
+              s[:trb] += gs[:trb]
+              s[:ast] += gs[:ast]
+              s[:stl] += gs[:stl]
+              s[:blk] += gs[:blk]
+              s[:tov] += gs[:tov]
+              s[:pf] += gs[:pf]
+              s[:pts] += gs[:pts]
+            end
+=end          
+          end
+        end
+      end
+      #ns = Stat.new(s)
+      #ns.save
+      #puts ns.id
+    end
+  end
+  
+  task :set_player_active_years do
+    players = Player.find(:all)
+    players.each do |p|
+      stats=p.stats
+      max = 0
+      min = 10000
+      stats.each do |s|
+        min = s.season if s.season < min
+        max = s.season if s.season > max
+      end
+      p.first_active_year = min
+      p.last_active_year = max
+      p.save
     end
   end
   
@@ -53,8 +194,30 @@ namespace 'bake' do
     end
   end
   
+  task :calculate_percentages do
+    stats = Stat.find(:all)
+    stats.each do |ts|
+      if ts.fga > 0
+        ts.fgpercent  = ts.fg.to_f/ts.fga
+      else
+        ts.fgpercent = nil
+      end
+      if ts.tfga > 0
+        ts.tfgpercent = ts.tfg.to_f/ts.tfga  
+      else
+        ts.tfgpercent = nil
+      end
+      if ts.fta > 0
+        ts.ftpercent  = ts.ft.to_f/ts.fta    
+      else
+        ts.ftpercent = nil
+      end
+      ts.save
+    end
+  end
+  
   task :validate_team_seasons do
-    team_stats = TeamStats.find(:all, :conditions => {:validated => nil})
+    team_stats = TeamStat.find(:all, :conditions => {:validated => nil})
     team_stats.each do |ts|
       ts.g = ts.wins + ts.losses
       ts.fgpercent  = ts.fg.to_f/ts.fga    if ts.fga > 0
@@ -229,7 +392,7 @@ namespace 'bake' do
   end
   
   task :setup_stats_team_id do
-    stats = Stats.find(:all)
+    stats = Stat.find(:all)
     stats.each do |s|
       team_stat = s.team_stats
       puts team_stat.id
